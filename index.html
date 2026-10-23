@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14291f">
+<title>HÜHNERJAGD — Browser Shooter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Hühnerjagd Startseite"><span class="brand-mark">✦</span><span>HÜHNER<span class="brand-accent">JAGD</span><small>ARCADE SHOOTER</small></span></a>
+    <div class="top-actions"><span class="status"><i></i> BEREIT ZUM ABHEBEN</span><button id="soundToggle" class="icon-btn" title="Sound umschalten" aria-label="Sound umschalten">♫</button></div>
+  </header>
+
+  <main>
+    <section id="homeScreen" class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> DIE ARCADE-LEGENDE LEBT</div>
+        <h1>Augen auf.<br><em>Huhn im Visier.</em></h1>
+        <p class="intro">Der Himmel ist voller Federvieh. Schnapp dir deine Maus, behalte die Munition im Blick und knack den Highscore.</p>
+        <div class="hero-buttons"><button id="playBtn" class="primary-btn">SPIEL STARTEN <span>↗</span></button><button id="howBtn" class="secondary-btn">SO GEHT'S</button></div>
+        <div class="quick-stats"><div><strong>60 <small>SEK.</small></strong><span>PRO RUNDE</span></div><div><strong>∞</strong><span>HÜHNER AM HIMMEL</span></div><div><strong id="bestHome">0</strong><span>DEIN HIGHSCORE</span></div></div>
+      </div>
+      <div class="hero-art" aria-label="Illustration eines Cartoon-Huhns im Himmel">
+        <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+        <div class="hill hill-back"></div><div class="hill hill-front"></div>
+        <div class="bird-hero"><div class="bird-tail"></div><div class="bird-body"></div><div class="bird-wing"></div><div class="bird-head"></div><div class="bird-comb"></div><div class="bird-beak"></div><div class="bird-eye"></div><div class="bird-leg leg-a"></div><div class="bird-leg leg-b"></div></div>
+        <div class="crosshair-art">+</div><div class="art-tag">TARGET ACQUIRED <b>✦</b></div>
+        <div class="art-caption">FIELD NOTES / 001<br><strong>THE FEATHER ZONE</strong></div>
+      </div>
+      <div class="bottom-strip"><span>01 / TRAIN YOUR AIM</span><span>02 / KEEP YOUR COOL</span><span>03 / OWN THE LEADERBOARD</span><span class="strip-right">MADE FOR THE ARCADE GENERATION</span></div>
+    </section>
+
+    <section id="howPanel" class="how-panel hidden">
+      <button id="closeHow" class="close-btn" aria-label="Schließen">×</button>
+      <p class="eyebrow">KURZES BRIEFING</p><h2>Einfach zielen. Clever treffen.</h2>
+      <div class="how-grid"><div><b>01</b><h3>MAUS BEWEGEN</h3><p>Bewege das Fadenkreuz über das Spielfeld und behalte die Hühner im Auge.</p></div><div><b>02</b><h3>LINKSKLICK</h3><p>Jeder Schuss kostet Munition. Treffer bringen Punkte – schnelle Ziele oft mehr.</p></div><div><b>03</b><h3>NACHLADEN</h3><p>Drücke <kbd>R</kbd> oder klicke auf NACHLADEN. Schaffst du den Highscore in 60 Sekunden?</p></div></div>
+        <button id="howPlayBtn" class="primary-btn">ALLES KLAR — LOS! <span>↗</span></button>
+    </section>
+
+    <section id="gameScreen" class="game-screen hidden">
+      <div class="game-heading"><div><p class="eyebrow">LIVE RUN / ARCADE MODE</p><h2>Der Hühnerhimmel</h2></div><button id="pauseBtn" class="secondary-btn small-btn">Ⅱ PAUSE</button></div>
+      <div class="hud">
+        <div class="hud-card score-card"><span>PUNKTE</span><strong id="score">00000</strong></div>
+        <div class="hud-card"><span>ZEIT</span><strong id="time">60<span>s</span></strong></div>
+        <div class="hud-card"><span>TREFFERQUOTE</span><strong id="accuracy">—</strong></div>
+        <div class="hud-card ammo-card"><span>MUNITION</span><strong id="ammo">● ● ● ● ● ●</strong><button id="reloadBtn">↻ NACHLADEN <kbd>R</kbd></button></div>
+      </div>
+      <div class="field-wrap">
+        <canvas id="gameCanvas" width="1200" height="650" aria-label="Spielbereich: mit der Maus auf die Hühner zielen und klicken"></canvas>
+        <div id="startOverlay" class="field-overlay"><div class="overlay-box"><span class="overlay-icon">✦</span><h3>READY, AIM, CLUCK!</h3><p>60 Sekunden. Ein Ziel nach dem anderen.</p><button id="fieldStartBtn" class="primary-btn">RUN STARTEN ↗</button></div></div>
+        <div id="pauseOverlay" class="field-overlay hidden"><div class="overlay-box"><span class="overlay-icon">Ⅱ</span><h3>RUN PAUSIERT</h3><p>Die Hühner warten. Keine Eile.</p><button id="resumeBtn" class="primary-btn">WEITER SPIELEN ↗</button></div></div>
+        <div id="gameOverOverlay" class="field-overlay hidden"><div class="overlay-box"><span class="overlay-icon">★</span><p class="eyebrow">RUN BEENDET</p><h3 id="resultTitle">GUT GEZIELT!</h3><strong id="finalScore" class="final-score">00000</strong><p id="resultText">Das war eine Runde.</p><button id="againBtn" class="primary-btn">NOCH EINE RUNDE ↗</button><button id="homeBtn" class="text-btn">ZUR STARTSEITE</button></div></div>
+        <div class="field-tip">MOUSE AIM <span>•</span> CLICK TO SHOOT <span>•</span> R TO RELOAD</div>
+      </div>
+      <div class="game-footer"><span><i class="live-dot"></i> SIMULATION LÄUFT LOKAL</span><span>HIT = PUNKTE · MISS = MUNITION WEG</span><span id="shotsInfo">SCHÜSSE: 0</span></div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>HÜHNERJAGD © 2026</span><span>EIN EIGENSTÄNDIGES FAN-INSPI R IERTES ARCADE-PROJEKT</span><span>BUILT TO PLAY. BUILT TO SHARE.</span></footer>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
