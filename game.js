@@ -5,13 +5,99 @@ const W = canvas.width, H = canvas.height;
 let state = 'home', score = 0, timeLeft = 60, ammo = 6, maxAmmo = 6, shots = 0, hits = 0;
 let targets = [], particles = [], lastTime = 0, spawnClock = 0, raf = 0, mouse = {x:W/2,y:H/2}, soundOn = true, audioCtx = null, shotFlash = 0;
 let best = Number(localStorage.getItem('huehnerjagd-best') || 0);
+let playerName = localStorage.getItem('huehnerjagd-player') || '';
+const config = window.HUEHNERJAGD_CONFIG || {};
+const hasSupabaseConfig = () => Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KEY &&
+  !config.SUPABASE_URL.includes('DEIN-PROJEKT') && !config.SUPABASE_ANON_KEY.includes('DEIN_SUPABASE'));
+function safeText(value){return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function updateNameUI(){
+  const input=$('playerName'), status=$('nameStatus');
+  if(input && document.activeElement!==input) input.value=playerName;
+  if(status) status.textContent=playerName ? `Aktiver Spieler: ${playerName}` : 'Wähle einen Namen für die Rangliste.';
+}
+function savePlayerName(){
+  const value=$('playerName').value.trim().replace(/\s+/g,' ');
+  if(!value){$('nameStatus').textContent='Bitte gib einen Namen ein.';$('playerName').focus();return false;}
+  if(value.length>18){$('nameStatus').textContent='Der Name darf höchstens 18 Zeichen lang sein.';return false;}
+  playerName=value;localStorage.setItem('huehnerjagd-player',playerName);updateNameUI();refreshLeaderboard();audio(480,.05,'sine');return true;
+}
+async function supabaseRequest(path, options={}){
+  if(!hasSupabaseConfig()) throw new Error('not_configured');
+  const url=config.SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+path;
+  const response=await fetch(url,{...options,headers:{
+    apikey:config.SUPABASE_ANON_KEY,
+    Authorization:'Bearer '+config.SUPABASE_ANON_KEY,
+    'Content-Type':'application/json',
+    ...options.headers
+  }});
+  if(!response.ok) throw new Error('Supabase antwortete mit '+response.status);
+  if(response.status===204)return null;
+  return response.json();
+}
+async function refreshLeaderboard(){
+  const rows=$('leaderboardRows'), status=$('leaderboardStatus');
+  if(!rows||!status)return;
+  if(!hasSupabaseConfig()){
+    const localScores=JSON.parse(localStorage.getItem('huehnerjagd-scores')||'[]')
+      .sort((a,b)=>b.score-a.score || new Date(a.created_at)-new Date(b.created_at)).slice(0,10);
+    if(!localScores.length){
+      rows.innerHTML='<div class="leaderboard-message">Noch keine Ergebnisse auf diesem Gerät. Speichere deinen Namen und spiele eine Runde!</div>';
+    } else {
+      rows.innerHTML=localScores.map((item,i)=>{
+        const date=new Date(item.created_at);
+        const dateLabel=Number.isNaN(date.getTime())?'—':date.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const name=safeText(item.player_name);
+        const isYou=playerName && item.player_name.toLowerCase()===playerName.toLowerCase();
+        return `<div class="leaderboard-row rank-${i+1}"><div class="leaderboard-player"><span class="rank-number">${i===0?'♛':String(i+1).padStart(2,'0')}</span><span class="player-avatar">${safeText((item.player_name||'?').slice(0,1).toUpperCase())}</span><span class="leaderboard-name">${name}${isYou?'<span class="leaderboard-you">DU</span>':''}</span></div><div class="leaderboard-score">${Number(item.score).toLocaleString('de-DE')}</div><div class="leaderboard-date">${dateLabel}</div></div>`;
+      }).join('');
+    }
+    status.textContent='LOKAL · NUR AUF DIESEM GERÄT · ONLINE-RANGLISTE NICHT VERBUNDEN';
+    return;
+  }
+  rows.innerHTML='<div class="leaderboard-message">Lade die besten Spieler …</div>';
+  status.textContent='VERBINDE MIT DER ONLINE-RANGLISTE';
+  try{
+    const data=await supabaseRequest('huehnerjagd_scores?select=player_name,score,created_at&order=score.desc,created_at.asc&limit=10');
+    if(!data.length){rows.innerHTML='<div class="leaderboard-message">Noch keine Highscores. Sei der Erste im Revier!</div>';status.textContent='ONLINE · NOCH KEINE ERGEBNISSE';return;}
+    rows.innerHTML=data.map((item,i)=>{
+      const date=new Date(item.created_at);
+      const dateLabel=Number.isNaN(date.getTime())?'—':date.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
+      const name=safeText(item.player_name);
+      const isYou=playerName && item.player_name.toLowerCase()===playerName.toLowerCase();
+      return `<div class="leaderboard-row rank-${i+1}"><div class="leaderboard-player"><span class="rank-number">${i===0?'♛':String(i+1).padStart(2,'0')}</span><span class="player-avatar">${safeText((item.player_name||'?').slice(0,1).toUpperCase())}</span><span class="leaderboard-name">${name}${isYou?'<span class="leaderboard-you">DU</span>':''}</span></div><div class="leaderboard-score">${Number(item.score).toLocaleString('de-DE')}</div><div class="leaderboard-date">${dateLabel}</div></div>`;
+    }).join('');
+    status.textContent=`ONLINE · TOP ${data.length} · AKTUALISIERT ${new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`;
+  }catch(err){
+    rows.innerHTML='<div class="leaderboard-message">Verbindung fehlgeschlagen. Prüfe Supabase-URL, API-Key und Tabellen-Policies.</div>';
+    status.textContent='VERBINDUNGSFEHLER';
+  }
+}
+async function submitScore(){
+  if(!playerName){$('resultText').textContent='Highscore nicht gespeichert: Bitte vor der nächsten Runde einen Spielernamen speichern.';return;}
+  const localScores=JSON.parse(localStorage.getItem('huehnerjagd-scores')||'[]');
+  localScores.push({player_name:playerName,score:score,created_at:new Date().toISOString()});
+  localStorage.setItem('huehnerjagd-scores',JSON.stringify(localScores.slice(-100)));
+  if(!hasSupabaseConfig()){
+    $('resultText').textContent=`${hits} Treffer aus ${shots} Schüssen · Ergebnis lokal gespeichert. Für eine gemeinsame Online-Rangliste muss der Online-Dienst verbunden werden.`;
+    refreshLeaderboard();
+    return;
+  }
+  try{
+    await supabaseRequest('huehnerjagd_scores',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({player_name:playerName,score:score})});
+    $('resultText').textContent=`${hits} Treffer aus ${shots} Schüssen · Highscore online gespeichert!`;
+    refreshLeaderboard();
+  }catch(err){
+    $('resultText').textContent=`${hits} Treffer aus ${shots} Schüssen · Online-Speichern fehlgeschlagen.`;
+  }
+}
+
 $('bestHome').textContent = best.toLocaleString('de-DE');
 function audio(freq=180,duration=.07,type='square',vol=.025){ if(!soundOn)return; try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)(); const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=vol;o.connect(g);g.connect(audioCtx.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.stop(audioCtx.currentTime+duration)}catch(e){}}
 function showScreen(which){$('homeScreen').classList.toggle('hidden',which!=='home');$('gameScreen').classList.toggle('hidden',which!=='game');}
 function startGame(){cancelAnimationFrame(raf);state='ready';score=0;timeLeft=60;ammo=maxAmmo;shots=0;hits=0;targets=[];particles=[];spawnClock=0;shotFlash=0;updateHud();showScreen('game');$('startOverlay').classList.remove('hidden');$('pauseOverlay').classList.add('hidden');$('gameOverOverlay').classList.add('hidden');drawScene(0);$('fieldStartBtn').focus();}
 function beginRun(){if(state==='running')return;state='running';$('startOverlay').classList.add('hidden');$('pauseOverlay').classList.add('hidden');lastTime=performance.now();spawnClock=0;for(let i=0;i<5;i++)spawnTarget(true);raf=requestAnimationFrame(loop);}
 function pauseGame(){if(state==='running'){state='paused';cancelAnimationFrame(raf);$('pauseOverlay').classList.remove('hidden');}else if(state==='paused'){state='running';$('pauseOverlay').classList.add('hidden');lastTime=performance.now();raf=requestAnimationFrame(loop);}}
-function endGame(){state='over';cancelAnimationFrame(raf);$('gameOverOverlay').classList.remove('hidden');$('finalScore').textContent=String(score).padStart(5,'0');$('resultTitle').textContent=score>=best&&score>0?'NEUER HIGHSCORE!':'GUT GEZIELT!';$('resultText').textContent=`${hits} Treffer aus ${shots} Schüssen · Trefferquote ${shots?Math.round(hits/shots*100):0}%.`;if(score>best){best=score;localStorage.setItem('huehnerjagd-best',best);$('bestHome').textContent=best.toLocaleString('de-DE')}audio(330,.15,'triangle',.04);}
+function endGame(){state='over';cancelAnimationFrame(raf);$('gameOverOverlay').classList.remove('hidden');$('finalScore').textContent=String(score).padStart(5,'0');$('resultTitle').textContent=score>=best&&score>0?'NEUER HIGHSCORE!':'GUT GEZIELT!';$('resultText').textContent=`${hits} Treffer aus ${shots} Schüssen · Trefferquote ${shots?Math.round(hits/shots*100):0}%.`;if(score>best){best=score;localStorage.setItem('huehnerjagd-best',best);$('bestHome').textContent=best.toLocaleString('de-DE')}audio(330,.15,'triangle',.04);submitScore();}
 function spawnTarget(initial=false){const size=25+Math.random()*17;targets.push({x:initial?Math.random()*W:Math.random()*(W+120)-60,y:75+Math.random()*(H*.53),r:size,vx:(Math.random()<.5?-1:1)*(75+Math.random()*100),vy:(Math.random()-.5)*22,phase:Math.random()*6.28,kind:Math.random()<.22?'gold':'normal',alive:1});}
 function updateHud(){$('score').textContent=String(score).padStart(5,'0');$('time').innerHTML=`${Math.ceil(timeLeft)}<span>s</span>`;$('accuracy').textContent=shots?Math.round(hits/shots*100)+'%':'—';$('ammo').textContent=Array.from({length:maxAmmo},(_,i)=>i<ammo?'●':'○').join(' ');$('shotsInfo').textContent=`SCHÜSSE: ${shots}`;}
 function drawBackground(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#b8d9aa');g.addColorStop(.68,'#e8dda5');g.addColorStop(1,'#e8c88d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -44,9 +130,10 @@ if(hit){hits++;hit.alive=0;const points=hit.kind==='gold'?250:100;score+=points;
 updateHud();drawScene(0);}
 function pointer(e){const rect=canvas.getBoundingClientRect();mouse.x=(e.clientX-rect.left)/rect.width*W;mouse.y=(e.clientY-rect.top)/rect.height*H;}
 canvas.addEventListener('pointermove',pointer);canvas.addEventListener('pointerdown',e=>{pointer(e);shoot(mouse.x,mouse.y)});canvas.addEventListener('contextmenu',e=>e.preventDefault());
-$('playBtn').onclick=()=>{startGame();};$('fieldStartBtn').onclick=beginRun;$('againBtn').onclick=()=>{startGame();beginRun()};$('pauseBtn').onclick=pauseGame;$('resumeBtn').onclick=pauseGame;$('reloadBtn').onclick=reload;$('homeBtn').onclick=()=>{state='home';cancelAnimationFrame(raf);showScreen('home');$('howPanel').classList.add('hidden')};
-$('howBtn').onclick=()=>{$('howPanel').classList.remove('hidden');$('howPanel').scrollIntoView({behavior:'smooth',block:'center'})};$('closeHow').onclick=()=>$('howPanel').classList.add('hidden');$('howPlayBtn').onclick=()=>{startGame();beginRun()};
+$('playBtn').onclick=()=>{if(!playerName){$('playerName').focus();$('nameStatus').textContent='Speichere zuerst deinen Spielernamen.';return;}startGame();};$('fieldStartBtn').onclick=beginRun;$('againBtn').onclick=()=>{startGame();beginRun()};$('pauseBtn').onclick=pauseGame;$('resumeBtn').onclick=pauseGame;$('reloadBtn').onclick=reload;$('homeBtn').onclick=()=>{state='home';cancelAnimationFrame(raf);showScreen('home');$('howPanel').classList.add('hidden')};
+$('howBtn').onclick=()=>{$('howPanel').classList.remove('hidden');$('howPanel').scrollIntoView({behavior:'smooth',block:'center'})};$('closeHow').onclick=()=>$('howPanel').classList.add('hidden');$('howPlayBtn').onclick=()=>{if(!playerName){$('homeScreen').scrollIntoView({behavior:'smooth'});$('playerName').focus();$('nameStatus').textContent='Speichere zuerst deinen Spielernamen.';return;}startGame();beginRun()};
+$('saveNameBtn').onclick=savePlayerName;$('playerName').addEventListener('keydown',e=>{if(e.key==='Enter')savePlayerName()});$('refreshLeaderboard').onclick=refreshLeaderboard;
 $('soundToggle').onclick=()=>{soundOn=!soundOn;$('soundToggle').textContent=soundOn?'♫':'♪';$('soundToggle').style.color=soundOn?'var(--cream)':'var(--orange)';if(soundOn)audio(520,.05,'sine')};
 window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='r'){e.preventDefault();reload()}if(e.code==='Escape'&&(state==='running'||state==='paused'))pauseGame();if(e.code==='Space'&&state==='ready'){e.preventDefault();beginRun()}});
-function homeArt(){drawBackground();}homeArt();
+function homeArt(){drawBackground();}homeArt();updateNameUI();refreshLeaderboard();
 })();

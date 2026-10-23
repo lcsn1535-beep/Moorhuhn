@@ -21,6 +21,11 @@
         <h1>Augen auf.<br><em>Huhn im Visier.</em></h1>
         <p class="intro">Der Himmel ist voller Federvieh. Schnapp dir deine Maus, behalte die Munition im Blick und knack den Highscore.</p>
         <div class="hero-buttons"><button id="playBtn" class="primary-btn">SPIEL STARTEN <span>↗</span></button><button id="howBtn" class="secondary-btn">SO GEHT'S</button></div>
+        <div class="player-box">
+          <label for="playerName">DEIN SPIELERNAME</label>
+          <div class="player-entry"><input id="playerName" maxlength="18" autocomplete="nickname" placeholder="z. B. HuhnMeister"><button id="saveNameBtn" class="secondary-btn">SPEICHERN</button></div>
+          <small id="nameStatus">Wähle einen Namen für die Rangliste.</small>
+        </div>
         <div class="quick-stats"><div><strong>60 <small>SEK.</small></strong><span>PRO RUNDE</span></div><div><strong>∞</strong><span>HÜHNER AM HIMMEL</span></div><div><strong id="bestHome">0</strong><span>DEIN HIGHSCORE</span></div></div>
       </div>
       <div class="hero-art" aria-label="Illustration eines Cartoon-Huhns im Himmel">
@@ -31,6 +36,19 @@
         <div class="art-caption">FIELD NOTES / 001<br><strong>THE FEATHER ZONE</strong></div>
       </div>
       <div class="bottom-strip"><span>01 / TRAIN YOUR AIM</span><span>02 / KEEP YOUR COOL</span><span>03 / OWN THE LEADERBOARD</span><span class="strip-right">MADE FOR THE ARCADE GENERATION</span></div>
+    </section>
+
+    <section id="leaderboardSection" class="leaderboard-section">
+      <div class="leaderboard-head">
+        <div><p class="eyebrow"><span></span> GLOBAL HIGH SCORES</p><h2>Die <em>Besten</em> im Revier.</h2><p class="leaderboard-sub">Wer trifft am besten? Die Top-Spieler aus allen Browsern.</p></div>
+        <button id="refreshLeaderboard" class="secondary-btn">↻ AKTUALISIEREN</button>
+      </div>
+      <div class="leaderboard-panel">
+        <div class="leaderboard-columns"><span>RANG / SPIELER</span><span>PUNKTE</span><span>DATUM</span></div>
+        <div id="leaderboardRows" class="leaderboard-rows"><div class="leaderboard-message">Leaderboard wird geladen …</div></div>
+        <div id="leaderboardStatus" class="leaderboard-status">Verbinde mit der Online-Rangliste …</div>
+      </div>
+      <p class="leaderboard-note">Die gemeinsame Rangliste benötigt die einmalige Supabase-Einrichtung aus der README. Ohne Konfiguration bleibt das Spiel spielbar.</p>
     </section>
 
     <section id="howPanel" class="how-panel hidden">
@@ -60,6 +78,6 @@
   </main>
   <footer class="site-footer"><span>HÜHNERJAGD © 2026</span><span>EIN EIGENSTÄNDIGES FAN-INSPI R IERTES ARCADE-PROJEKT</span><span>BUILT TO PLAY. BUILT TO SHARE.</span></footer>
 </div>
-<script src="game.js"></script>
+<script src="config.js"></script>\n<script src="game.js"></script>
 </body>
 </html>
